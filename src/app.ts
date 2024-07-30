@@ -1,15 +1,15 @@
-'use strict';
-
 class Workout {
+  description!: string;
+  type!: string;
   date = new Date();
   id = (Date.now() + '').slice(-10);
   clicks = 0;
 
-  constructor(coords, distance, duration) {
-    this.coords = coords; //     [lat, lng]
-    this.distance = distance; // in km
-    this.duration = duration; // in min
-  }
+  constructor(
+    public coords: [number, number],
+    public distance: number,
+    public duration: number
+  ) {}
 
   _setDescription() {
     // prettier-ignore
@@ -29,8 +29,15 @@ class Workout {
 }
 
 class Running extends Workout {
+  cadence: number;
+  pace!: number;
   type = 'running';
-  constructor(coords, distance, duration, cadence) {
+  constructor(
+    coords: [number, number],
+    distance: number,
+    duration: number,
+    cadence: number
+  ) {
     super(coords, distance, duration);
     this.cadence = cadence;
     this.calcPace();
@@ -46,7 +53,15 @@ class Running extends Workout {
 
 class Cycling extends Workout {
   type = 'cycling';
-  constructor(coords, distance, duration, elevationGain) {
+  elevationGain: number;
+  speed!: number;
+
+  constructor(
+    coords: [number, number],
+    distance: number,
+    duration: number,
+    elevationGain: number
+  ) {
     super(coords, distance, duration);
     this.elevationGain = elevationGain;
     this.calcSpeed();
@@ -60,25 +75,49 @@ class Cycling extends Workout {
   }
 }
 
-// const run1 = new Running([39, -12], 5.2, 24, 178);
-// const cycling1 = new Cycling([39, -12], 27, 95, 523);
-// console.log(run1, cycling1);
 ///////////////////////////////
 // APLICATION ARCHITECTURE
 
-const form = document.querySelector('.form');
-const containerWorkouts = document.querySelector('.workouts');
-const inputType = document.querySelector('.form__input--type');
-const inputDistance = document.querySelector('.form__input--distance');
-const inputDuration = document.querySelector('.form__input--duration');
-const inputCadence = document.querySelector('.form__input--cadence');
-const inputElevation = document.querySelector('.form__input--elevation');
+const form = document.querySelector('.form')! as HTMLFormElement;
+const containerWorkouts = document.querySelector(
+  '.workouts'
+)! as HTMLUListElement;
+const inputType = document.querySelector(
+  '.form__input--type'
+)! as HTMLInputElement;
+const inputDistance = document.querySelector(
+  '.form__input--distance'
+)! as HTMLInputElement;
+const inputDuration = document.querySelector(
+  '.form__input--duration'
+)! as HTMLInputElement;
+const inputCadence = document.querySelector(
+  '.form__input--cadence'
+)! as HTMLInputElement;
+const inputElevation = document.querySelector(
+  '.form__input--elevation'
+)! as HTMLInputElement;
+
+interface Workout {
+  cadence?: number;
+  clicks: number;
+  coords: [number, number];
+  date: Date;
+  description: string;
+  distance: number;
+  duration: number;
+  elevationGain?: number;
+  speed?: number;
+  id: string;
+  pace?: number;
+  type: string;
+}
 
 class App {
-  #map;
-  #mapZoomLevel = 16;
-  #mapEvent;
-  #workouts = [];
+  mapZoomLevel = 16;
+  workouts: Workout[] = [];
+  map!: L.Map;
+  mapEvent!: L.LeafletMouseEvent;
 
   constructor() {
     this._getPosition();
@@ -100,27 +139,27 @@ class App {
       );
   }
 
-  _loadMap(position) {
+  _loadMap(position: GeolocationPosition) {
     const { latitude, longitude } = position.coords;
 
-    const coords = [latitude, longitude];
+    const coords: [number, number] = [latitude, longitude];
 
-    this.#map = L.map('map').setView(coords, this.#mapZoomLevel);
+    this.map = L.map('map').setView(coords, this.mapZoomLevel);
 
     L.tileLayer('https://tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(this.#map);
+    }).addTo(this.map);
 
-    this.#map.on('click', this._showForm.bind(this));
+    this.map.on('click', this._showForm.bind(this));
 
-    this.#workouts.forEach(work => {
+    this.workouts.forEach(work => {
       this._renderWorkoutMarker(work);
     });
   }
 
-  _showForm(mapE) {
-    this.#mapEvent = mapE;
+  _showForm(mapE: L.LeafletMouseEvent) {
+    this.mapEvent = mapE;
     form.classList.remove('hidden');
     inputDistance.focus();
   }
@@ -140,22 +179,22 @@ class App {
   }
 
   _toggleElevationField() {
-    inputElevation.closest('.form__row').classList.toggle('form__row--hidden');
-    inputCadence.closest('.form__row').classList.toggle('form__row--hidden');
+    inputElevation.closest('.form__row')!.classList.toggle('form__row--hidden');
+    inputCadence.closest('.form__row')!.classList.toggle('form__row--hidden');
   }
 
-  _newWorkout(e) {
-    const validInputs = (...inputs) =>
+  _newWorkout(e: Event) {
+    const validInputs = (...inputs: number[]) =>
       inputs.every(inp => Number.isFinite(inp));
-    const allPositive = (...inputs) => inputs.every(inp => inp > 0);
+    const allPositive = (...inputs: number[]) => inputs.every(inp => inp > 0);
     e.preventDefault();
 
     // Get data from the form
     const type = inputType.value;
     const distance = +inputDistance.value;
     const duration = +inputDuration.value;
-    const { lat, lng } = this.#mapEvent.latlng;
-    let workout;
+    const { lat, lng } = this.mapEvent.latlng;
+    let workout!: Workout;
     // If workout running, create running object
     if (type == 'running') {
       const cadence = +inputCadence.value;
@@ -181,12 +220,12 @@ class App {
     }
 
     // Add new obejct to worrkout array
-    this.#workouts.push(workout);
+    this.workouts.push(workout);
 
     // Render workout on map as marker
     this._renderWorkoutMarker(workout);
 
-    // Render wprkout on list
+    // Render workout on list
     this._renderWorkout(workout);
 
     // Hide form and clea3r input fields
@@ -196,9 +235,9 @@ class App {
     this._setLocalStorage();
   }
 
-  _renderWorkoutMarker(workout) {
+  _renderWorkoutMarker(workout: Workout) {
     L.marker(workout.coords)
-      .addTo(this.#map)
+      .addTo(this.map)
       .bindPopup(
         L.popup({
           maxWidth: 250,
@@ -214,7 +253,7 @@ class App {
       .openPopup();
   }
 
-  _renderWorkout(workout) {
+  _renderWorkout(workout: Workout) {
     let html = `
       <li class="workout workout--${workout.type}" data-id="${workout.id}">
         <h2 class="workout__title">${workout.description}</h2>
@@ -232,7 +271,7 @@ class App {
         </div>
     `;
 
-    if (workout.type === 'running')
+    if (workout.type === 'running' && workout.pace)
       html += `
         <div class="workout__details">
           <span class="workout__icon">⚡️</span>
@@ -247,7 +286,7 @@ class App {
       </li>
       `;
 
-    if (workout.type === 'cycling')
+    if (workout.type === 'cycling' && workout.speed)
       html += `
         <div class="workout__details">
           <span class="workout__icon">⚡️</span>
@@ -265,37 +304,39 @@ class App {
     form.insertAdjacentHTML('afterend', html);
   }
 
-  _moveToPopup(e) {
-    const workoutEl = e.target.closest('.workout');
+  _moveToPopup(e: MouseEvent) {
+    const workoutEl = (e.target as Element).closest('.workout');
 
     if (!workoutEl) return;
 
-    const workout = this.#workouts.find(
-      work => work.id === workoutEl.dataset.id
+    const workout = this.workouts.find(
+      work => work.id === (workoutEl as HTMLElement).dataset.id
     );
 
-    this.#map.setView(workout.coords, this.#mapZoomLevel, {
-      animate: true,
-      pan: {
+    if (workout) {
+      this.map.setView(workout.coords, this.mapZoomLevel, {
+        animate: true,
         duration: 1,
-      },
-    });
+      });
+    }
 
     // using the public inteerface
     // workout.click();
   }
 
   _setLocalStorage() {
-    localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+    localStorage.setItem('workouts', JSON.stringify(this.workouts));
   }
 
   _getLocaleStorage() {
-    const data = JSON.parse(localStorage.getItem('workouts'));
+    const data = JSON.parse(
+      localStorage.getItem('workouts') || '[]'
+    ) as Workout[];
 
     if (!data) return;
 
-    this.#workouts = data;
-    this.#workouts.forEach(work => {
+    this.workouts = data;
+    this.workouts.forEach(work => {
       this._renderWorkout(work);
     });
   }
